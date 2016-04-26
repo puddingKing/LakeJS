@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/puddingKing/tools/issues"
   },
-  "homepage": "https://github.com/puddingKing/tools#readme"
+  "homepage": "https://github.com/puddingKing/tools#readme",
+  "devDependencies": {
+    "webpack": "^1.13.0"
+  }
 }
