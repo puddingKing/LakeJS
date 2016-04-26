@@ -1,2 +1,2 @@
 # tools
-the session is about a tool for packing useful code.
+the repository is about a tool for packing useful code.
