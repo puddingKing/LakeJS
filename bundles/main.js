@@ -44,16 +44,32 @@
 /* 0 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var EventUtil = __webpack_require__(1);
-	var coor = __webpack_require__(2);
-	var test = document.getElementById('test');
-	var coordinate = document.getElementById('coordinate');
-	var ctx = coordinate.getContext('2d');
+	// var EventUtil = require('../modules/tools/event/EventUtil');
+	var DragDrop = __webpack_require__(3);
+	// var coor = require('../modules/chart/coordinate');
+	// var test = document.getElementById('test');
+	// var coordinate = document.getElementById('coordinate');
+	// var ctx = coordinate.getContext('2d');
 
-	EventUtil.addHandler(test,'click',function(){
-		alert('hello,test');
-	})
-	coor(ctx,90,170,9);
+	// EventUtil.addHandler(test,'click',function(){
+	// 	alert('hello,test');
+	// })
+	// coor(ctx,90,170,9);
+	// EventUtil.addHandler(window,"load",function(event){
+	// 	EventUtil.addHandler(window,"orientationchange",function(event){
+	// 		test.innerHTML = "current orientation is "+window.orientation;
+	// 	});
+	// })
+	DragDrop.enable();
+	// DragDrop.addHandler("dragstart",function(event){
+	// 	console.info("start dragging "+event.target.id);
+	// });
+	// DragDrop.addHandler("drag",function(event){
+	// 	console.info("dragging");
+	// });
+	// DragDrop.addHandler("dragend",function(event){
+	// 	console.info("dragend");
+	// });
 
 /***/ },
 /* 1 */
@@ -74,6 +90,43 @@
 		},
 		getTarget:function(event){
 			return event.target || event.srcElement;
+		},
+		getRelatedTarget:function(event){  //一般是在mouseout或者mouseover事件中触发
+			if (event.relatedTarget) {
+				return event.relatedTarget;
+			}else if(event.toElement){
+				return event.toElement;
+			}else if(event.fromElement){
+				return event.fromElement;
+			}else{
+				return null;
+			}
+		},
+		getButton:function(event){
+			if (document.implementation.hasFeature("MouseEvents","2.0")) {  //浏览器是否支持DOM版鼠标事件
+				return event.button;
+			}else{
+				switch(event.button){   //0:表示没有按下按钮 1:表示按下了主鼠标的按钮 2：表示按下了次鼠标的按钮 3：表示同时按下了主次鼠标的按钮 4：表示按下了中间鼠标的按钮 5：表示同时按下了主鼠标以及中间鼠标的按钮 6：表示同时按下次鼠标和中间鼠标的按钮 7：表示同时按下三个鼠标
+					case 0:
+					case 1:
+					case 3:
+					case 5:
+					case 7:
+						return 0
+					case 2:
+					case 6:
+						return 2;
+					case 4:
+						return 1;
+				}
+			}
+		},
+		getWheelDelta:function(){  //如果wheelDelta为正 滚轮是往下滚的
+			if (event.wheelDelta) {
+				return (client.enginee.opera && client.enginee.opera < 9.5 ? -event.wheelDelta:event.wheelDelta); //opera9.5之前版本是相反的
+			}else{
+				return -event.detail *40;  //支持firefox
+			}
 		},
 		preventDefault:function(event){
 			if (event.preventDefault) {
@@ -102,62 +155,106 @@
 	module.exports = EventUtil;
 
 /***/ },
-/* 2 */
+/* 2 */,
+/* 3 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var EventUtil = __webpack_require__(1);
+	var EventTarget = __webpack_require__(4);
+
+	var DragDrop = function(){
+		var dragdrop = new EventTarget(),
+		dragging = null,
+		diffX = 0,
+		diffY = 0;
+
+		function handleEvent(event){
+			//获取事件和对象
+			event = EventUtil.getEvent(event);
+			var target = EventUtil.getTarget(event);
+
+			//确定事件类型
+			switch(event.type){
+				case "mousedown":
+					if (target.className.indexOf("draggable")>-1) {
+						dragging = target;
+						diffX = event.clientX - target.offsetLeft;
+						diffY = event.clientY - target.offsetTop;
+						dragdrop.fire({type:"dragstart",target:dragging,x:event.clientX,y:event.clientY});
+					}
+					break;
+
+				case "mousemove":
+					if (dragging !== null) {
+						//指定位置
+						dragging.style.left = (event.clientX - diffX) + "px";
+						dragging.style.top = (event.clientY - diffY) + "px";
+						dragdrop.fire({type:"drag",target:dragging,x:event.clientX,y:event.clientY});
+					}
+					break;
+
+				case "mouseup":
+					dragdrop.fire({type:"dragend",target:dragging,x:event.clientX,y:event.clientY});
+					dragging = null;
+					break;
+			}
+		};
+
+		//public interface
+		dragdrop.enable = function(){
+			EventUtil.addHandler(document,"mousedown",handleEvent);
+			EventUtil.addHandler(document,"mousemove",handleEvent);
+			EventUtil.addHandler(document,"mouseup",handleEvent);
+		}
+
+		dragdrop.disable = function(){
+			EventUtil.addHandler(document,"mousedown",handleEvent);
+			EventUtil.addHandler(document,"mousemove",handleEvent);
+			EventUtil.addHandler(document,"mouseup",handleEvent);
+		}
+		return dragdrop;
+	}();
+	module.exports = DragDrop;
+
+/***/ },
+/* 4 */
 /***/ function(module, exports) {
 
-	
-	//计算坐标轴上面的y方向的点坐标
-	function pointsList(min,max,count,height,yUnit){
-		//min：数据的最小值 || max：数据的最大值 || count：y方向的轴个数 || height：canvas的高度 || yUnit:y方向上单元格的高度
-		var result = [];
-		var ratio = (max-min)/(count-1);
-		for (var i = 0; i < count; i++) {
-			result.push({
-				x:0,
-				y:height -yUnit*3- i*yUnit,
-				num:ratio*i+min
-			})
+	function EventTarget(){
+		this.handlers = {};
+	}
+	EventTarget.prototype = {
+		constructor:EventTarget,
+		addHandler:function(type,handler){
+			if (typeof this.handlers[type] == "undefined") {
+				this.handlers[type] = [];
+			}
+			this.handlers[type].push(handler);
+		},
+		fire: function(event){
+			if (!event.target) {
+				event.target = this;
+			}
+			if (this.handlers[event.type] instanceof Array) {
+				var handlers = this.handlers[event.type];
+				for (var i = 0, len = handlers.length; i < len; i++) {
+					handlers[i](event);
+				}
+			}
+		},
+		removeHandler:function(type,handler){
+			if (this.handlers[type] instanceof Array) {
+				var handlers = this.handlers[type];
+				for (var i = 0, len = handlers.length; i < len; i++) {
+					if (handlers[i] === handler) {
+						break;
+					}
+				}
+				handlers.splice(i,1);
+			}
 		}
-		console.info(result);
-		return result;
 	}
-	//绘制坐标轴
-	function coordinate(ctx,min,max,count){ //min:坐标轴上的最小数值 max:最大数值 count:纵坐标的个数
-		var width = ctx.canvas.width;
-		var height = ctx.canvas.height;
-		var yUnit = height/(count-1+3);
-		var points_list = pointsList(min,max,count,height,yUnit); //得到一组点,eg:（0，90）（0，100）（0，110）...
-		console.info("canvas高度为："+height);
-		console.info(points_list);
-		ctx.fillStyle = 'white';
-		ctx.rect(0,0,width,height);
-		ctx.fill();
-
-		ctx.beginPath();//开始绘制坐标轴的上半部分
-		ctx.strokeStyle = 'rgba(0,0,0, 0.1)';
-		// ctx.fillStyle = 'red';
-		ctx.lineWidth = 1; 
-		ctx.font = "12px Arial";
-		for (var i = 0; i < count; i++) {
-			if (i < (count - 1) / 2) {
-				ctx.fillStyle = '#007F24';
-			}
-			else if(i > (count - 1) / 2){
-				ctx.fillStyle = '#FF0A16';
-			}
-			else{
-				ctx.fillStyle = '#333333';
-			}
-			ctx.moveTo(0,points_list[i].y);
-			ctx.lineTo(width,points_list[i].y);//完成绘制坐标轴的上半部分
-			ctx.fillText(points_list[i].num.toFixed(2).toString(),0,points_list[i].y-5);
-		}	
-		ctx.rect(yUnit,height-2*yUnit,width-yUnit,2*yUnit); //绘制坐标轴的下半部分
-		ctx.moveTo(yUnit,height-yUnit);
-		ctx.lineTo(width,height-yUnit);
-		ctx.stroke();
-	}
-	module.exports = coordinate;
+	module.exports = EventTarget;
 
 /***/ }
 /******/ ]);
