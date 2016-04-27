@@ -220,6 +220,7 @@
 /* 4 */
 /***/ function(module, exports) {
 
+	//使用观察者模式自定义事件
 	function EventTarget(){
 		this.handlers = {};
 	}
