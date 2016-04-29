@@ -1,4 +1,6 @@
 # tools
---this repository is about a tool for packing useful code.--
+this repository is sth userful coded during my learning journal.
 
--------------main points: webpack,AMD,CommonJS--------------
+# keywords
+AMD CommonJS webpack 
+
